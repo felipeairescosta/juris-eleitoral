@@ -140,7 +140,7 @@ def busca_por_filtro(topico: str, subtopico: str, fonte: str) -> list[dict]:
             "resumo":          d.get("resumo", "")[:2000],
             "score":           None,
         })
-    return result[:50]
+    return result[:200]
 
 
 # ---------------------------------------------------------------------------
