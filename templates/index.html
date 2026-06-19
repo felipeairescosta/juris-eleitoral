@@ -654,12 +654,8 @@
     const subHTML = r.subtopico
       ? `<span class="card-subtopico">${esc(r.subtopico)}</span>`
       : '';
-    const anoData = r.data ? (r.data.match(/\d{4}/) || [])[0] : '';
-    const numProc = r.numero_processo
-      ? (anoData && !r.numero_processo.includes('.') ? `${r.numero_processo}.${anoData}` : r.numero_processo)
-      : '';
     const metaItens = [
-      numProc ? `<span>📋 <strong>${esc(numProc)}</strong></span>` : '',
+      r.numero_processo ? `<span>📋 <strong>${esc(r.numero_processo)}</strong></span>` : '',
       r.data ? `<span>📅 ${esc(r.data)}</span>` : '',
       r.relator ? `<span>👤 ${esc(r.relator)}</span>` : '',
     ].filter(Boolean).join('');
