@@ -306,6 +306,30 @@
       transition: background 0.2s;
     }
     .btn-pdf:hover { background: var(--verde-claro); }
+    #paginacao {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: .5rem;
+      padding: 1.5rem 0 2rem;
+      flex-wrap: wrap;
+    }
+    .pg-btn {
+      min-width: 2.2rem;
+      height: 2.2rem;
+      padding: 0 .6rem;
+      border: 1px solid var(--borda);
+      border-radius: 6px;
+      background: var(--card-bg);
+      color: var(--texto);
+      font-size: .85rem;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, border-color .15s;
+    }
+    .pg-btn:hover:not(:disabled) { background: var(--verde-claro); border-color: var(--verde); }
+    .pg-btn.ativo { background: var(--verde); color: #fff; border-color: var(--verde); font-weight: 700; }
+    .pg-btn:disabled { opacity: .35; cursor: default; }
     .btn-fonte {
       display: inline-flex;
       align-items: center;
@@ -439,6 +463,7 @@
       <p>Digite um termo ou selecione um filtro para iniciar a consulta.</p>
     </div>
   </div>
+  <div id="paginacao"></div>
 
 </div>
 
@@ -499,9 +524,11 @@
     buscar();
   });
 
-  selFonte.addEventListener('change', buscar);
-  selSub.addEventListener('change', buscar);
-  btnBuscar.addEventListener('click', buscar);
+  let paginaAtual = 1;
+
+  selFonte.addEventListener('change', () => { paginaAtual = 1; buscar(); });
+  selSub.addEventListener('change',   () => { paginaAtual = 1; buscar(); });
+  btnBuscar.addEventListener('click', () => { paginaAtual = 1; buscar(); });
 
   campoQ.addEventListener('input', () => {
     btnLimpar.style.display = campoQ.value ? 'block' : 'none';
@@ -512,11 +539,13 @@
     campoQ.focus();
     divResultados.innerHTML = '<div class="estado-vazio"><div class="emoji">📚</div><p>Digite um termo ou selecione um filtro.</p></div>';
     divStatus.innerHTML = '';
+    document.getElementById('paginacao').innerHTML = '';
   });
-  campoQ.addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+  campoQ.addEventListener('keydown', e => { if (e.key === 'Enter') { paginaAtual = 1; buscar(); } });
 
   // ── Busca ──
-  async function buscar() {
+  async function buscar(pagina) {
+    if (pagina) paginaAtual = pagina;
     const q = campoQ.value.trim();
     const fonte = selFonte.value;
     const topico = selTopico.value;
@@ -527,12 +556,14 @@
     spinner.style.display = 'block';
     divResultados.innerHTML = '';
     divStatus.innerHTML = '';
+    document.getElementById('paginacao').innerHTML = '';
 
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (fonte) params.set('fonte', fonte);
     if (topico) params.set('topico', topico);
     if (sub) params.set('subtopico', sub);
+    if (!q) params.set('pagina', paginaAtual);
 
     try {
       const resp = await fetch('/buscar?' + params);
@@ -547,7 +578,7 @@
 
   // ── Renderização ──
   function renderResultados(dados, query) {
-    const { resultados, total, total_filtro, modo } = dados;
+    const { resultados, total, total_filtro, total_paginas, pagina, modo } = dados;
 
     if (!resultados || resultados.length === 0) {
       divStatus.innerHTML = 'Nenhuma decisão encontrada para os filtros selecionados.';
@@ -556,14 +587,31 @@
     }
 
     let modoTxt;
-    if (modo === 'semantica') {
+    if (modo === 'bm25') {
       modoTxt = `<span class="destaque">${total}</span> decisão(ões) por relevância`;
-    } else if (total_filtro && total_filtro > total) {
-      modoTxt = `Exibindo <span class="destaque">${total}</span> de <span class="destaque">${total_filtro}</span> decisões — use a busca para refinar os resultados`;
     } else {
-      modoTxt = `<span class="destaque">${total}</span> decisão(ões) encontrada(s)`;
+      const de = ((pagina - 1) * 50) + 1;
+      const ate = Math.min(pagina * 50, total_filtro);
+      modoTxt = `Exibindo <span class="destaque">${de}–${ate}</span> de <span class="destaque">${total_filtro}</span> decisões`;
     }
     divStatus.innerHTML = modoTxt;
+
+    // Paginação
+    if (modo !== 'bm25' && total_paginas > 1) {
+      const divPag = document.getElementById('paginacao');
+      const pg = pagina;
+      let html = '';
+      html += `<button class="pg-btn" onclick="buscar(${pg - 1})" ${pg <= 1 ? 'disabled' : ''}>&#8592;</button>`;
+      const inicio = Math.max(1, pg - 2);
+      const fim = Math.min(total_paginas, pg + 2);
+      if (inicio > 1) html += `<button class="pg-btn" onclick="buscar(1)">1</button>${inicio > 2 ? '<span>…</span>' : ''}`;
+      for (let i = inicio; i <= fim; i++) {
+        html += `<button class="pg-btn ${i === pg ? 'ativo' : ''}" onclick="buscar(${i})">${i}</button>`;
+      }
+      if (fim < total_paginas) html += `${fim < total_paginas - 1 ? '<span>…</span>' : ''}<button class="pg-btn" onclick="buscar(${total_paginas})">${total_paginas}</button>`;
+      html += `<button class="pg-btn" onclick="buscar(${pg + 1})" ${pg >= total_paginas ? 'disabled' : ''}>&#8594;</button>`;
+      divPag.innerHTML = html;
+    }
 
     divResultados.innerHTML = resultados.map((r, i) => cardHTML(r, i)).join('');
 

@@ -129,7 +129,22 @@ def busca_bm25(query: str, topico: str, subtopico: str, fonte: str, n: int = 20)
     return saida
 
 
-def busca_por_filtro(topico: str, subtopico: str, fonte: str, limite: int = 200) -> tuple[list[dict], int]:
+_DATA_RE = re.compile(r"(\d{1,2})[./](\d{1,2})[./](\d{2,4})")
+
+def _chave_data(d: dict) -> str:
+    """Retorna string AAAAMMDD para ordenação descendente; vazio vai para o final."""
+    m = _DATA_RE.search(d.get("data", ""))
+    if not m:
+        return "00000000"
+    dia, mes, ano = m.group(1), m.group(2), m.group(3)
+    if len(ano) == 2:
+        ano = "20" + ano
+    return f"{ano}{mes.zfill(2)}{dia.zfill(2)}"
+
+
+POR_PAGINA = 50
+
+def busca_por_filtro(topico: str, subtopico: str, fonte: str, pagina: int = 1) -> tuple[list[dict], int, int]:
     result = []
     for d in _decisoes:
         if topico    and d.get("topico")    != topico:    continue
@@ -149,8 +164,13 @@ def busca_por_filtro(topico: str, subtopico: str, fonte: str, limite: int = 200)
             "resumo":          d.get("resumo", "")[:2000],
             "score":           None,
         })
+
+    result.sort(key=_chave_data, reverse=True)
     total = len(result)
-    return result[:limite], total
+    total_paginas = max(1, (total + POR_PAGINA - 1) // POR_PAGINA)
+    pagina = max(1, min(pagina, total_paginas))
+    inicio = (pagina - 1) * POR_PAGINA
+    return result[inicio:inicio + POR_PAGINA], total, total_paginas
 
 
 # ---------------------------------------------------------------------------
@@ -231,17 +251,16 @@ def buscar():
             r["titulo_hl"] = destacar(r.get("titulo", ""), termos)
             r["resumo_hl"] = destacar(r.get("resumo", ""), termos)
     else:
-        # Limite maior quando o filtro é mais específico
-        filtros_ativos = sum(bool(x) for x in [topico, subtopico, fonte])
-        limite = 500 if filtros_ativos >= 2 else 200
-        resultados, total_filtro = busca_por_filtro(topico, subtopico, fonte, limite)
+        pagina = int(request.args.get("pagina", 1))
+        resultados, total_filtro, total_paginas = busca_por_filtro(topico, subtopico, fonte, pagina)
         modo = "filtro"
         for r in resultados:
             r["titulo_hl"] = r.get("titulo", "")
             r["resumo_hl"] = r.get("resumo", "")
 
         return jsonify({"resultados": resultados, "total": len(resultados),
-                        "total_filtro": total_filtro, "modo": modo})
+                        "total_filtro": total_filtro, "total_paginas": total_paginas,
+                        "pagina": pagina, "modo": modo})
 
     return jsonify({"resultados": resultados, "total": len(resultados), "modo": modo})
 
