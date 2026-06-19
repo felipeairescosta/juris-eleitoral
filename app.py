@@ -231,7 +231,10 @@ def buscar():
             r["titulo_hl"] = destacar(r.get("titulo", ""), termos)
             r["resumo_hl"] = destacar(r.get("resumo", ""), termos)
     else:
-        resultados, total_filtro = busca_por_filtro(topico, subtopico, fonte)
+        # Limite maior quando o filtro é mais específico
+        filtros_ativos = sum(bool(x) for x in [topico, subtopico, fonte])
+        limite = 500 if filtros_ativos >= 2 else 200
+        resultados, total_filtro = busca_por_filtro(topico, subtopico, fonte, limite)
         modo = "filtro"
         for r in resultados:
             r["titulo_hl"] = r.get("titulo", "")
