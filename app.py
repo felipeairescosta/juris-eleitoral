@@ -28,7 +28,14 @@ app = Flask(__name__)
 
 log.info("Carregando dados...")
 with open(DADOS_JSON, encoding="utf-8") as f:
-    _decisoes: list[dict] = json.load(f)
+    raw = json.load(f)
+
+# Trunca resumo para reduzir uso de memória (512MB no plano gratuito do Render)
+_decisoes: list[dict] = []
+for d in raw:
+    d["resumo"] = (d.get("resumo") or "")[:800]
+    _decisoes.append(d)
+del raw
 log.info(f"{len(_decisoes)} decisoes carregadas.")
 
 
@@ -52,6 +59,7 @@ for d in _decisoes:
     _corpus_tokens.append(_tokenizar(campos))
 
 _bm25 = BM25Okapi(_corpus_tokens)
+del _corpus_tokens  # libera memória após indexação
 log.info("Índice BM25 pronto.")
 
 # Índices para filtros
