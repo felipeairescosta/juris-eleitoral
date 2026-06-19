@@ -431,7 +431,7 @@
         </select>
       </div>
 
-      <div class="filtro-group">
+      <div class="filtro-group" id="grupo-topico">
         <label>Tópico</label>
         <select id="sel-topico">
           <option value="">— Todos os tópicos —</option>
@@ -441,7 +441,7 @@
         </select>
       </div>
 
-      <div class="filtro-group">
+      <div class="filtro-group" id="grupo-subtopico">
         <label>Subtópico</label>
         <select id="sel-subtopico" disabled>
           <option value="">— Selecione um tópico —</option>
@@ -486,18 +486,33 @@
   const divResultados = document.getElementById('resultados');
   const spinner = document.getElementById('spinner');
 
+  const FONTES_SEM_TOPICO = ['TRE-CE - Súmulas', 'TSE - Súmulas'];
+  const grupoTopico    = document.getElementById('grupo-topico');
+  const grupoSubtopico = document.getElementById('grupo-subtopico');
+
   // ── Tópicos dinâmicos por fonte ──
   selFonte.addEventListener('change', async () => {
     const fonte = selFonte.value;
-    const url = fonte ? `/topicos?fonte=${encodeURIComponent(fonte)}` : '/topicos';
-    const tops = await fetch(url).then(r => r.json());
-    selTopico.innerHTML = '<option value="">— Todos os tópicos —</option>';
-    tops.forEach(t => {
-      const o = document.createElement('option');
-      o.value = t; o.textContent = t;
-      selTopico.appendChild(o);
-    });
-    selSub.innerHTML = '<option value="">— Todos os subtópicos —</option>';
+    const eSumula = FONTES_SEM_TOPICO.includes(fonte);
+
+    grupoTopico.style.display    = eSumula ? 'none' : '';
+    grupoSubtopico.style.display = eSumula ? 'none' : '';
+
+    if (eSumula) {
+      selTopico.value = '';
+      selSub.value = '';
+    } else {
+      const url = fonte ? `/topicos?fonte=${encodeURIComponent(fonte)}` : '/topicos';
+      const tops = await fetch(url).then(r => r.json());
+      selTopico.innerHTML = '<option value="">— Todos os tópicos —</option>';
+      tops.forEach(t => {
+        const o = document.createElement('option');
+        o.value = t; o.textContent = t;
+        selTopico.appendChild(o);
+      });
+      selSub.innerHTML = '<option value="">— Todos os subtópicos —</option>';
+    }
+    paginaAtual = 1;
     buscar();
   });
 
@@ -529,7 +544,6 @@
 
   let paginaAtual = 1;
 
-  selFonte.addEventListener('change', () => { paginaAtual = 1; buscar(); });
   selSub.addEventListener('change',   () => { paginaAtual = 1; buscar(); });
   btnBuscar.addEventListener('click', () => { paginaAtual = 1; buscar(); });
 
