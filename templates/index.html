@@ -565,8 +565,13 @@
 
   function badgeFonte(fonte) {
     if (!fonte) return '';
-    const cls = fonte.includes('TSE') ? 'badge-fonte-tse' : 'badge-fonte-trece';
-    const label = fonte.includes('TSE') ? 'TSE · Temas Selecionados' : 'TRE-CE · Ementários';
+    const map = {
+      'TSE - Temas Selecionados': ['badge-fonte-tse',    'TSE · Temas Selecionados'],
+      'TSE - Súmulas':            ['badge-fonte-tse',    'TSE · Súmulas'],
+      'TRE-CE - Ementários Temáticos': ['badge-fonte-trece', 'TRE-CE · Ementários'],
+      'TRE-CE - Súmulas':         ['badge-fonte-trece',  'TRE-CE · Súmulas'],
+    };
+    const [cls, label] = map[fonte] || ['badge-fonte-tse', fonte];
     return `<span class="badge ${cls}">${label}</span>`;
   }
 
