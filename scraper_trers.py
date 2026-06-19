@@ -6,14 +6,14 @@ Uso: python scraper_trers.py
 Saída: output/jurisprudencia_trers.json
 
 Estrutura do site:
-  Tópico (capa) → links de subtópicos → cada subtópico tem ementas + links _inteiroteor
-  O número completo do processo está embutido na URL do inteiro teor.
+  capa -> links de subtópicos -> cada subtópico contém <p> com link + <p> irmãos com ementa
+  Links de documento: /arquivos/tre-rs-NNNNNNN-DD-AAAA-J-TT[-.]OOOO[_inteiroteor]
+  Links de subpágina: terminam em -1, -2 etc. (mais decisões antigas)
 """
 
 import asyncio
 import json
 import re
-import time
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -21,7 +21,6 @@ from playwright.async_api import async_playwright
 OUTPUT = Path("output/jurisprudencia_trers.json")
 BASE   = "https://www.tre-rs.jus.br"
 
-# Páginas "capa" de cada tópico principal
 CAPAS = [
     ("Abuso de Poder",
      f"{BASE}/jurisprudencia/emtema-novo/abuso-de-poder/capa-abuso-de-poder"),
@@ -53,12 +52,17 @@ CAPAS = [
      f"{BASE}/jurisprudencia/emtema-novo/infidelidade-partidaria/infidelidade-partidaria"),
 ]
 
-RE_DATA    = re.compile(r"\b(\d{1,2}[/\.\-]\d{1,2}[/\.\-]\d{2,4})\b")
-RE_RELATOR = re.compile(
-    r"[Rr]elator[a]?\(?[a-z]?\)?\s*(?:Des\.?a?|Min\.?|Juiz[a]?\.?|Dr\.?a?)?\s*([A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀÇ][A-Za-záéíóúâêîôûãõàçÁÉÍÓÚÂÊÎÔÛÃÕÀÇ\s\.]{5,60}?)(?:\s*[,\n]|$)",
+# Extrai CNJ do caminho da URL:
+# tre-rs[-re]-NNNNNNN-DD-AAAA-J-TT[-.]OOOO[_inteiroteor]
+RE_NUM_URL = re.compile(
+    r"tre-rs-(?:re-)?(\d{4,7})-(\d{2})-(\d{4})-(\d)-(\d{2,3})[-\.](\d{4})",
+    re.IGNORECASE,
 )
-# Extrai número CNJ da URL: tre-rs-NNNNNNN-DD-AAAA-J-TT-OOOO_inteiroteor
-RE_NUM_URL = re.compile(r"tre-rs-(\d+)-(\d+)-(\d{4})-(\d)-(\d+)-(\d+)_inteiroteor", re.IGNORECASE)
+RE_DATA      = re.compile(r"\b(\d{1,2}[/\.\-]\d{1,2}[/\.\-]\d{2,4})\b")
+RE_RELATOR   = re.compile(
+    r"[Rr]elator[a]?\(?[a-z]?\)?\s*(?:[A-Z][a-z]+\.?)?\s*([A-ZÁÉÍÓÚÂÊÎÔÛÃÕÀÇ][A-Za-záéíóúâêîôûãõàçÁÉÍÓÚÂÊÎÔÛÃÕÀÇ\s\.\'`]{5,70}?)(?:\s*[,\n\)]|$)"
+)
+RE_NUM_TEXTO = re.compile(r"n[º°\.]?\s*0*(\d{5,7}[-\.]?\d{0,2})", re.IGNORECASE)
 
 
 def num_de_url(url: str) -> str:
@@ -78,72 +82,128 @@ def extrair_relator(texto: str) -> str:
     return m.group(1).strip()[:70] if m else ""
 
 
+def extrair_num_texto(texto: str) -> str:
+    m = RE_NUM_TEXTO.search(texto)
+    return m.group(1).strip() if m else ""
+
+
 async def carregar(page, url: str):
     await page.goto(url, wait_until="networkidle", timeout=60_000)
-    await page.wait_for_timeout(1500)
+    await page.wait_for_timeout(1200)
 
 
 async def coletar_subtopicos(page, topico: str, capa_url: str) -> list[dict]:
-    """Coleta todos os links de subtópicos a partir da capa do tópico."""
     await carregar(page, capa_url)
+    base_path = capa_url.rsplit("/", 1)[0]
     links = await page.eval_on_selector_all(
         "a[href]",
         "els => els.map(e => ({text: e.innerText.trim(), href: e.href}))"
-        f".filter(l => l.href.includes('{BASE}') && l.href.includes('emtema-novo')"
-        " && !l.href.includes('#') && l.text.length > 2"
-        " && (l.text.match(/^\\d/) || l.text.match(/^[A-Z]/)))"
+        ".filter(l => !l.href.includes('#') && l.text.length > 2)"
     )
-    # Filtra apenas os que são subtópicos desta capa (mesmo path base)
-    base_path = capa_url.rsplit("/", 1)[0]
-    subs = [l for l in links if l["href"].startswith(base_path) and l["href"] != capa_url]
+    vistos = set()
+    subs = []
+    for l in links:
+        href = l["href"]
+        txt  = l["text"]
+        if (href.startswith(base_path)
+                and href != capa_url
+                and "arquivos" not in href
+                and href not in vistos
+                and (txt[0].isdigit() or txt[0].isupper())):
+            vistos.add(href)
+            subs.append(l)
     return subs
 
 
-async def raspar_subtopico(page, topico: str, subtopico: str, url: str) -> list[dict]:
-    """Extrai todas as decisões de uma página de subtópico."""
-    await carregar(page, url)
-
-    # Coleta pares (link_inteiroteor, texto_da_ementa)
-    # Cada decisão tem um link _inteiroteor seguido do texto
+async def extrair_decisoes_da_pagina(page, topico: str, subtopico: str, url: str) -> list[dict]:
+    """
+    Extrai decisões de uma página de subtópico.
+    Cada decisão: <p><a href="/arquivos/...">título</a></p> seguido de <p>ementa</p>...
+    """
     items = await page.evaluate("""() => {
         const resultado = [];
-        const links = Array.from(document.querySelectorAll('a[href*="_inteiroteor"]'));
+        // Todos os links de documento (/arquivos/)
+        const links = Array.from(document.querySelectorAll('a[href*="arquivos"]'));
         for (const link of links) {
             const href = link.href;
-            const titulo = link.innerText.trim();
-            // Pega o texto do bloco pai ou dos irmãos seguintes até o próximo link
-            let texto = '';
-            let node = link.parentElement;
-            // Sobe até encontrar um bloco de conteúdo
-            while (node && node.tagName !== 'ARTICLE' && node.tagName !== 'SECTION'
-                   && node.tagName !== 'DIV' && node.tagName !== 'MAIN') {
-                node = node.parentElement;
+            const linkText = link.innerText.trim();
+
+            // Sobe ao <p> ou <li> pai direto do link
+            let pEl = link.parentElement;
+            while (pEl && !['P','LI','DT','DD'].includes(pEl.tagName)) {
+                pEl = pEl.parentElement;
             }
-            if (node) texto = node.innerText.trim();
-            resultado.push({href, titulo, texto: texto.slice(0, 3000)});
+
+            // Coleta parágrafos irmãos seguintes até o próximo link de arquivo
+            let resumo = '';
+            if (pEl) {
+                let sib = pEl.nextElementSibling;
+                let count = 0;
+                while (sib && count < 15) {
+                    // Para se encontrar outro link de arquivo
+                    if (sib.querySelector('a[href*="arquivos"]')) break;
+                    const t = sib.innerText.trim();
+                    if (t) resumo += t + '\\n';
+                    sib = sib.nextElementSibling;
+                    count++;
+                }
+            }
+            resultado.push({href, linkText, resumo: resumo.trim().slice(0, 3000)});
         }
         return resultado;
     }""")
 
     decisoes = []
     for item in items:
-        num = num_de_url(item["href"])
-        texto = item["texto"] or item["titulo"]
+        titulo  = item["linkText"]
+        resumo  = item["resumo"]
+        href    = item["href"]
+        num_url = num_de_url(href)
+        num     = num_url or extrair_num_texto(titulo)
+        data    = extrair_data(titulo) or extrair_data(resumo)
+        relator = extrair_relator(titulo) or extrair_relator(resumo)
+
         decisoes.append({
             "topico":           topico,
             "subtopico":        subtopico,
-            "titulo":           item["titulo"][:300],
+            "titulo":           titulo[:300],
             "numero_processo":  num,
-            "data":             extrair_data(texto),
-            "relator":          extrair_relator(texto),
+            "data":             data,
+            "relator":          relator,
             "publicacao":       "",
             "tribunal":         "TRE-RS",
-            "resumo":           texto,
-            "url_pdf":          item["href"],
+            "resumo":           (titulo + "\n" + resumo).strip(),
+            "url_pdf":          href,
             "url_fonte":        url,
             "fonte":            "TRE-RS - Ementário Temático",
         })
     return decisoes
+
+
+async def raspar_subtopico(page, topico: str, subtopico: str, url: str) -> list[dict]:
+    """Raspa uma página de subtópico, incluindo subpáginas paginadas (-1, -2, etc.)."""
+    await carregar(page, url)
+    todas = await extrair_decisoes_da_pagina(page, topico, subtopico, url)
+
+    # Verifica subpáginas (-1, -2, ...) na mesma área
+    base = url.rsplit("/", 1)[0]
+    slug = url.rsplit("/", 1)[-1]
+    links_sub = await page.eval_on_selector_all(
+        "a[href]",
+        f"els => els.map(e => e.href).filter(h => h.startsWith('{base}') && h !== '{url}' && !h.includes('arquivos') && !h.includes('#'))"
+    )
+    vistos = {url}
+    for sub_url in links_sub:
+        # Só segue links que parecem subpáginas do mesmo subtópico (slug base igual)
+        sub_slug = sub_url.rsplit("/", 1)[-1]
+        if sub_slug.startswith(slug.rstrip("0123456789").rstrip("-")) or sub_slug.replace(slug, "").lstrip("-").isdigit():
+            if sub_url not in vistos:
+                vistos.add(sub_url)
+                await carregar(page, sub_url)
+                mais = await extrair_decisoes_da_pagina(page, topico, subtopico, sub_url)
+                todas.extend(mais)
+
+    return todas
 
 
 async def main():
@@ -166,14 +226,14 @@ async def main():
                 for sub in subs:
                     nome_sub = sub["text"]
                     sub_url  = sub["href"]
-                    print(f"    → {nome_sub[:60]}")
+                    print(f"    -> {nome_sub[:55]}", end=" ", flush=True)
                     try:
                         decisoes = await raspar_subtopico(page, topico, nome_sub, sub_url)
-                        print(f"       {len(decisoes)} decisão(ões)")
+                        print(f"({len(decisoes)})")
                         todas.extend(decisoes)
                     except Exception as e:
-                        print(f"       ERRO: {e}")
-                    await asyncio.sleep(0.8)
+                        print(f"ERRO: {e}")
+                    await asyncio.sleep(0.6)
             except Exception as e:
                 print(f"  ERRO na capa: {e}")
 
@@ -184,7 +244,7 @@ async def main():
         encoding="utf-8",
     )
     print(f"\n{'='*50}")
-    print(f"Total: {len(todas)} decisões → {OUTPUT}")
+    print(f"Total: {len(todas)} decisões -> {OUTPUT}")
 
 
 if __name__ == "__main__":
