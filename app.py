@@ -1,75 +1,75 @@
 """
-App de consulta de jurisprudência eleitoral — TRE-CE
-Uso: python app.py  →  acesse http://localhost:5000
+App de consulta de jurisprudência eleitoral
+Busca com BM25 — sem dependências de GPU ou disco persistente.
+Uso: python app.py  →  http://localhost:5000
 """
 
 import json
 import re
 import logging
 import os
-import ssl
 from pathlib import Path
 
-os.environ["CURL_CA_BUNDLE"] = ""
-os.environ["REQUESTS_CA_BUNDLE"] = ""
-os.environ["HF_HUB_DISABLE_SSL_VERIFICATION"] = "1"
-ssl._create_default_https_context = ssl._create_unverified_context  # noqa
-
-import httpx as _httpx
-_orig_client = _httpx.Client.__init__
-def _patched_client(self, *a, **kw):
-    kw["verify"] = False
-    _orig_client(self, *a, **kw)
-_httpx.Client.__init__ = _patched_client
-_orig_async = _httpx.AsyncClient.__init__
-def _patched_async(self, *a, **kw):
-    kw["verify"] = False
-    _orig_async(self, *a, **kw)
-_httpx.AsyncClient.__init__ = _patched_async
-
-import chromadb
 from flask import Flask, render_template, request, jsonify
-from sentence_transformers import SentenceTransformer
+from rank_bm25 import BM25Okapi
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 log = logging.getLogger(__name__)
 
-CHROMA_DIR = Path("output/chroma_db")
 _MERGED = Path("output/jurisprudencia_merged.json")
 _TRECE  = Path("output/jurisprudencia.json")
 DADOS_JSON = _MERGED if _MERGED.exists() else _TRECE
-COLECAO = "jurisprudencia"
-MODELO = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 app = Flask(__name__)
 
-# --- Inicialização dos recursos (carregados uma única vez) ---
+# ---------------------------------------------------------------------------
+# Carga e indexação BM25 (executada uma única vez na inicialização)
+# ---------------------------------------------------------------------------
 
-log.info("Carregando modelo de embeddings...")
-_modelo = SentenceTransformer(MODELO)
-
-log.info("Conectando ao ChromaDB...")
-_cliente = chromadb.PersistentClient(path=str(CHROMA_DIR))
-_colecao = _cliente.get_collection(COLECAO)
-
-log.info("Carregando JSON...")
+log.info("Carregando dados...")
 with open(DADOS_JSON, encoding="utf-8") as f:
-    _decisoes = json.load(f)
+    _decisoes: list[dict] = json.load(f)
+log.info(f"{len(_decisoes)} decisoes carregadas.")
+
+
+def _tokenizar(texto: str) -> list[str]:
+    """Tokenização simples para português: minúsculas, remove pontuação."""
+    texto = texto.lower()
+    texto = re.sub(r"[^\w\s]", " ", texto)
+    return [t for t in texto.split() if len(t) > 2]
+
+
+log.info("Construindo índice BM25...")
+_corpus_tokens: list[list[str]] = []
+for d in _decisoes:
+    campos = " ".join(filter(None, [
+        d.get("titulo", ""),
+        d.get("resumo", ""),
+        d.get("subtopico", ""),
+        d.get("topico", ""),
+        d.get("numero_processo", ""),
+    ]))
+    _corpus_tokens.append(_tokenizar(campos))
+
+_bm25 = BM25Okapi(_corpus_tokens)
+log.info("Índice BM25 pronto.")
 
 # Índices para filtros
-_fontes = sorted({d.get("fonte", "") for d in _decisoes if d.get("fonte")})
-_topicos = sorted({d["topico"] for d in _decisoes if d.get("topico")})
+_fontes   = sorted({d.get("fonte", "") for d in _decisoes if d.get("fonte")})
+_topicos  = sorted({d.get("topico", "") for d in _decisoes if d.get("topico")})
 _subtopicos: dict[str, list[str]] = {}
 for d in _decisoes:
-    t = d.get("topico", "")
-    s = d.get("subtopico", "")
+    t, s = d.get("topico", ""), d.get("subtopico", "")
     if t and s:
         _subtopicos.setdefault(t, set()).add(s)
 _subtopicos = {t: sorted(subs) for t, subs in _subtopicos.items()}
 
 
+# ---------------------------------------------------------------------------
+# Funções de busca
+# ---------------------------------------------------------------------------
+
 def destacar(texto: str, termos: list[str]) -> str:
-    """Envolve os termos buscados em <mark> para realce visual."""
     if not termos or not texto:
         return texto
     padrao = re.compile(
@@ -79,67 +79,73 @@ def destacar(texto: str, termos: list[str]) -> str:
     return padrao.sub(r"<mark>\1</mark>", texto)
 
 
-def busca_semantica(query: str, topico: str, subtopico: str, fonte: str, n: int = 20) -> list[dict]:
-    """Busca por similaridade semântica com filtros opcionais."""
-    filtros = {}
-    if topico:
-        filtros["topico"] = topico
-    if subtopico:
-        filtros["subtopico"] = subtopico
-    if fonte:
-        filtros["fonte"] = fonte
+def busca_bm25(query: str, topico: str, subtopico: str, fonte: str, n: int = 20) -> list[dict]:
+    tokens = _tokenizar(query)
+    scores = _bm25.get_scores(tokens)
 
-    # ChromaDB exige $and quando há múltiplos filtros
-    if len(filtros) > 1:
-        where = {"$and": [{k: v} for k, v in filtros.items()]}
-    elif filtros:
-        where = filtros
-    else:
-        where = None
-
-    kwargs = dict(
-        query_embeddings=[_modelo.encode(query).tolist()],
-        n_results=min(n, _colecao.count()),
-        include=["metadatas", "distances"],
-    )
-    if where:
-        kwargs["where"] = where
-
-    res = _colecao.query(**kwargs)
+    # Aplica filtros e coleta resultados ordenados por score
     resultados = []
-    for meta, dist in zip(res["metadatas"][0], res["distances"][0]):
-        resultados.append({**meta, "score": round((1 - dist) * 100, 1)})
-    return resultados
-
-
-def busca_por_filtro(topico: str, subtopico: str, fonte: str) -> list[dict]:
-    """Lista decisões por tópico/subtópico/fonte sem query semântica."""
-    result = []
-    for d in _decisoes:
-        if topico and d.get("topico") != topico:
+    for i, score in enumerate(scores):
+        if score <= 0:
+            continue
+        d = _decisoes[i]
+        if topico    and d.get("topico")    != topico:
             continue
         if subtopico and d.get("subtopico") != subtopico:
             continue
-        if fonte and d.get("fonte") != fonte:
+        if fonte     and d.get("fonte")     != fonte:
             continue
-        result.append({
-            "fonte": d.get("fonte", ""),
-            "topico": d.get("topico", ""),
-            "subtopico": d.get("subtopico", ""),
-            "titulo": d.get("titulo", ""),
+        resultados.append((score, i))
+
+    resultados.sort(reverse=True)
+    resultados = resultados[:n]
+
+    saida = []
+    for score, i in resultados:
+        d = _decisoes[i]
+        saida.append({
+            "fonte":           d.get("fonte", ""),
+            "topico":          d.get("topico", ""),
+            "subtopico":       d.get("subtopico", ""),
+            "titulo":          d.get("titulo", ""),
             "numero_processo": d.get("numero_processo", ""),
-            "data": d.get("data", ""),
-            "relator": d.get("relator", ""),
-            "tribunal": d.get("tribunal", ""),
-            "url_pdf": d.get("url_pdf", ""),
-            "url_fonte": d.get("url_fonte", ""),
-            "resumo": d.get("resumo", "")[:2000],
-            "score": None,
+            "data":            d.get("data", ""),
+            "relator":         d.get("relator", ""),
+            "tribunal":        d.get("tribunal", ""),
+            "url_pdf":         d.get("url_pdf", ""),
+            "url_fonte":       d.get("url_fonte", ""),
+            "resumo":          d.get("resumo", "")[:2000],
+            "score":           round(score, 1),
+        })
+    return saida
+
+
+def busca_por_filtro(topico: str, subtopico: str, fonte: str) -> list[dict]:
+    result = []
+    for d in _decisoes:
+        if topico    and d.get("topico")    != topico:    continue
+        if subtopico and d.get("subtopico") != subtopico: continue
+        if fonte     and d.get("fonte")     != fonte:     continue
+        result.append({
+            "fonte":           d.get("fonte", ""),
+            "topico":          d.get("topico", ""),
+            "subtopico":       d.get("subtopico", ""),
+            "titulo":          d.get("titulo", ""),
+            "numero_processo": d.get("numero_processo", ""),
+            "data":            d.get("data", ""),
+            "relator":         d.get("relator", ""),
+            "tribunal":        d.get("tribunal", ""),
+            "url_pdf":         d.get("url_pdf", ""),
+            "url_fonte":       d.get("url_fonte", ""),
+            "resumo":          d.get("resumo", "")[:2000],
+            "score":           None,
         })
     return result[:50]
 
 
-# --- Rotas ---
+# ---------------------------------------------------------------------------
+# Rotas
+# ---------------------------------------------------------------------------
 
 @app.route("/")
 def index():
@@ -159,17 +165,17 @@ def get_subtopicos(topico: str):
 
 @app.route("/buscar")
 def buscar():
-    query = request.args.get("q", "").strip()
-    topico = request.args.get("topico", "").strip()
+    query    = request.args.get("q", "").strip()
+    topico   = request.args.get("topico", "").strip()
     subtopico = request.args.get("subtopico", "").strip()
-    fonte = request.args.get("fonte", "").strip()
+    fonte    = request.args.get("fonte", "").strip()
 
     if not query and not topico and not subtopico and not fonte:
         return jsonify({"resultados": [], "total": 0, "modo": "vazio"})
 
     if query:
-        resultados = busca_semantica(query, topico, subtopico, fonte)
-        modo = "semantica"
+        resultados = busca_bm25(query, topico, subtopico, fonte)
+        modo = "bm25"
         termos = query.split()
         for r in resultados:
             r["titulo_hl"] = destacar(r.get("titulo", ""), termos)
@@ -185,5 +191,6 @@ def buscar():
 
 
 if __name__ == "__main__":
-    log.info("Iniciando servidor em http://localhost:5000")
-    app.run(debug=False, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    log.info(f"Iniciando servidor na porta {port}")
+    app.run(debug=False, host="0.0.0.0", port=port)

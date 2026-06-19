@@ -1,5 +1,5 @@
-# Banco de dados e dados gerados
-output/
+# Banco vetorial (gerado localmente, não necessário no Render)
+output/chroma_db/
 
 # Claude Code
 .claude/
