@@ -219,8 +219,9 @@
       white-space: nowrap;
     }
     .badge-topico { background: var(--verde-bg); color: var(--verde); }
-    .badge-tribunal-tse { background: #fff3e0; color: #b45309; }
+    .badge-tribunal-tse   { background: #fff3e0; color: #b45309; }
     .badge-tribunal-trece { background: #e8f0fe; color: #1a56db; }
+    .badge-tribunal-trers { background: #fdf2f8; color: #9333ea; }
     .badge-tribunal-outro { background: #f3f4f6; color: #555; }
     .badge-score {
       background: #f0fdf4;
@@ -229,6 +230,8 @@
     }
     .badge-fonte-trece { background: #e8f0fe; color: #1a56db; }
     .badge-fonte-tse   { background: #fff3e0; color: #92400e; }
+    .badge-fonte-trers { background: #fdf2f8; color: #9333ea; }
+    .badge-fonte-outro { background: #f3f4f6; color: #555; }
 
     .card-subtopico {
       font-size: 0.75rem;
@@ -630,20 +633,22 @@
   }
 
   function badgeTribunal(tribunal) {
-    if (tribunal === 'TSE') return 'badge-tribunal-tse';
+    if (tribunal === 'TSE')    return 'badge-tribunal-tse';
     if (tribunal === 'TRE-CE') return 'badge-tribunal-trece';
+    if (tribunal === 'TRE-RS') return 'badge-tribunal-trers';
     return 'badge-tribunal-outro';
   }
 
   function badgeFonte(fonte) {
     if (!fonte) return '';
     const map = {
-      'TSE - Temas Selecionados': ['badge-fonte-tse',    'TSE · Temas Selecionados'],
-      'TSE - Súmulas':            ['badge-fonte-tse',    'TSE · Súmulas'],
-      'TRE-CE - Ementários Temáticos': ['badge-fonte-trece', 'TRE-CE · Ementários'],
-      'TRE-CE - Súmulas':         ['badge-fonte-trece',  'TRE-CE · Súmulas'],
+      'TSE - Temas Selecionados':       ['badge-fonte-tse',   'TSE · Temas Selecionados'],
+      'TSE - Súmulas':                  ['badge-fonte-tse',   'TSE · Súmulas'],
+      'TRE-CE - Ementários Temáticos':  ['badge-fonte-trece', 'TRE-CE · Ementários'],
+      'TRE-CE - Súmulas':               ['badge-fonte-trece', 'TRE-CE · Súmulas'],
+      'TRE-RS - Ementário Temático':    ['badge-fonte-trers', 'TRE-RS · Ementário'],
     };
-    const [cls, label] = map[fonte] || ['badge-fonte-tse', fonte];
+    const [cls, label] = map[fonte] || ['badge-fonte-outro', fonte];
     return `<span class="badge ${cls}">${label}</span>`;
   }
 

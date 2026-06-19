@@ -177,7 +177,7 @@ def busca_por_filtro(topico: str, subtopico: str, fonte: str, pagina: int = 1) -
 # Rotas
 # ---------------------------------------------------------------------------
 
-_PDF_HOSTS_PERMITIDOS = ("sjur-servicos.tse.jus.br", "inter03.tse.jus.br")
+_PDF_HOSTS_PERMITIDOS = ("sjur-servicos.tse.jus.br", "inter03.tse.jus.br", "www.tre-rs.jus.br")
 
 @app.route("/pdf")
 def proxy_pdf():

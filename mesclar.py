@@ -1,15 +1,16 @@
 """
-Mescla os JSONs do TRE-CE e do TSE num único arquivo consolidado.
+Mescla os JSONs do TRE-CE, TSE e TRE-RS num único arquivo consolidado.
 Uso: python mesclar.py
 """
 
 import json
 from pathlib import Path
 
-TRECE_JSON   = Path("output/jurisprudencia.json")
-TSE_JSON     = Path("output/jurisprudencia_tse.json")
+TRECE_JSON       = Path("output/jurisprudencia.json")
+TSE_JSON         = Path("output/jurisprudencia_tse.json")
 SUMULAS_JSON     = Path("output/jurisprudencia_sumulas_trece.json")
 SUMULAS_TSE_JSON = Path("output/jurisprudencia_sumulas_tse.json")
+TRERS_JSON       = Path("output/jurisprudencia_trers.json")
 MERGED_JSON      = Path("output/jurisprudencia_merged.json")
 
 FONTES = [
@@ -17,6 +18,7 @@ FONTES = [
     (TSE_JSON,        "TSE - Temas Selecionados"),
     (SUMULAS_JSON,    "TRE-CE - Súmulas"),
     (SUMULAS_TSE_JSON, "TSE - Súmulas"),
+    (TRERS_JSON,      "TRE-RS - Ementário Temático"),
 ]
 
 
