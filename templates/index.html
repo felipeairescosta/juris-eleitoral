@@ -458,18 +458,36 @@
   const divResultados = document.getElementById('resultados');
   const spinner = document.getElementById('spinner');
 
-  const subtopicosData = {{ subtopicos | tojson }};
+  // ── Tópicos dinâmicos por fonte ──
+  selFonte.addEventListener('change', async () => {
+    const fonte = selFonte.value;
+    const url = fonte ? `/topicos?fonte=${encodeURIComponent(fonte)}` : '/topicos';
+    const tops = await fetch(url).then(r => r.json());
+    selTopico.innerHTML = '<option value="">— Todos os tópicos —</option>';
+    tops.forEach(t => {
+      const o = document.createElement('option');
+      o.value = t; o.textContent = t;
+      selTopico.appendChild(o);
+    });
+    selSub.innerHTML = '<option value="">— Todos os subtópicos —</option>';
+    buscar();
+  });
 
-  // ── Subtópicos dinâmicos ──
-  selTopico.addEventListener('change', () => {
+  // ── Subtópicos dinâmicos por tópico e fonte ──
+  selTopico.addEventListener('change', async () => {
     const topico = selTopico.value;
     selSub.innerHTML = '';
     if (!topico) {
       selSub.innerHTML = '<option value="">— Selecione um tópico —</option>';
       selSub.disabled = true;
+      buscar();
       return;
     }
-    const subs = subtopicosData[topico] || [];
+    const fonte = selFonte.value;
+    const url = fonte
+      ? `/subtopicos/${encodeURIComponent(topico)}?fonte=${encodeURIComponent(fonte)}`
+      : `/subtopicos/${encodeURIComponent(topico)}`;
+    const subs = await fetch(url).then(r => r.json());
     selSub.innerHTML = '<option value="">— Todos os subtópicos —</option>';
     subs.forEach(s => {
       const opt = document.createElement('option');

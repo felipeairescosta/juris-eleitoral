@@ -192,9 +192,25 @@ def index():
     )
 
 
+@app.route("/topicos")
+def get_topicos():
+    fonte = request.args.get("fonte", "").strip()
+    if not fonte:
+        return jsonify(_topicos)
+    tops = sorted({d["topico"] for d in _decisoes
+                   if d.get("topico") and d.get("fonte") == fonte})
+    return jsonify(tops)
+
+
 @app.route("/subtopicos/<topico>")
 def get_subtopicos(topico: str):
-    return jsonify(_subtopicos.get(topico, []))
+    fonte = request.args.get("fonte", "").strip()
+    if not fonte:
+        return jsonify(_subtopicos.get(topico, []))
+    subs = sorted({d["subtopico"] for d in _decisoes
+                   if d.get("subtopico") and d.get("topico") == topico
+                   and d.get("fonte") == fonte})
+    return jsonify(subs)
 
 
 @app.route("/buscar")
