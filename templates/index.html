@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Consulta de Jurisprudência Eleitoral — TRE-CE</title>
+  <style>
+    :root {
+      --verde: #1a5c38;
+      --verde-claro: #2e8b57;
+      --verde-bg: #f0f7f4;
+      --amarelo: #f5a623;
+      --cinza: #4a4a4a;
+      --cinza-claro: #f5f5f5;
+      --borda: #d0d9d5;
+      --texto: #222;
+      --sombra: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f0f2f0;
+      color: var(--texto);
+      min-height: 100vh;
+    }
+
+    /* ── Cabeçalho ── */
+    header {
+      background: var(--verde);
+      color: #fff;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      height: 64px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+    }
+    header .brasao {
+      font-size: 2rem;
+      line-height: 1;
+    }
+    header .titulo-header h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+    header .titulo-header p {
+      font-size: 0.78rem;
+      opacity: 0.8;
+    }
+    header .badge-total {
+      margin-left: auto;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+    }
+
+    /* ── Layout principal ── */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem;
+    }
+
+    /* ── Painel de busca ── */
+    .painel-busca {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: var(--sombra);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .painel-busca h2 {
+      font-size: 0.85rem;
+      color: var(--verde);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+
+    .campo-busca-wrapper {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+    .campo-busca-wrapper .icone-busca {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #999;
+      font-size: 1.1rem;
+      pointer-events: none;
+    }
+    #campo-busca {
+      width: 100%;
+      padding: 12px 48px 12px 42px;
+      border: 2px solid var(--borda);
+      border-radius: 8px;
+      font-size: 1rem;
+      color: var(--texto);
+      transition: border-color 0.2s;
+      outline: none;
+    }
+    #campo-busca:focus { border-color: var(--verde-claro); }
+    #campo-busca::placeholder { color: #aaa; }
+
+    .btn-limpar-busca {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: none;
+      padding: 4px;
+    }
+    .btn-limpar-busca:hover { color: #666; }
+
+    .filtros {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .filtro-group {
+      flex: 1;
+      min-width: 180px;
+    }
+    .filtro-group label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--cinza);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .filtro-group select {
+      width: 100%;
+      padding: 9px 12px;
+      border: 2px solid var(--borda);
+      border-radius: 8px;
+      font-size: 0.92rem;
+      color: var(--texto);
+      background: #fff;
+      outline: none;
+      transition: border-color 0.2s;
+      cursor: pointer;
+    }
+    .filtro-group select:focus { border-color: var(--verde-claro); }
+
+    .btn-buscar {
+      background: var(--verde);
+      color: #fff;
+      border: none;
+      padding: 10px 28px;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .btn-buscar:hover { background: var(--verde-claro); }
+
+    .dica {
+      margin-top: 0.8rem;
+      font-size: 0.78rem;
+      color: #888;
+    }
+    .dica strong { color: var(--verde); }
+
+    /* ── Área de resultados ── */
+    #status {
+      font-size: 0.88rem;
+      color: #666;
+      margin-bottom: 1rem;
+      min-height: 1.2em;
+    }
+    #status .destaque { color: var(--verde); font-weight: 600; }
+
+    #resultados { display: flex; flex-direction: column; gap: 1rem; }
+
+    /* ── Card de decisão ── */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: var(--sombra);
+      padding: 1.2rem 1.4rem;
+      border-left: 4px solid var(--verde);
+      transition: box-shadow 0.15s;
+      position: relative;
+    }
+    .card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.13); }
+
+    .card-topo {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.6rem;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-topico { background: var(--verde-bg); color: var(--verde); }
+    .badge-tribunal-tse { background: #fff3e0; color: #b45309; }
+    .badge-tribunal-trece { background: #e8f0fe; color: #1a56db; }
+    .badge-tribunal-outro { background: #f3f4f6; color: #555; }
+    .badge-score {
+      background: #f0fdf4;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+    .badge-fonte-trece { background: #e8f0fe; color: #1a56db; }
+    .badge-fonte-tse   { background: #fff3e0; color: #92400e; }
+
+    .card-subtopico {
+      font-size: 0.75rem;
+      color: #888;
+      font-style: italic;
+      margin-left: auto;
+    }
+
+    .card-titulo {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--texto);
+      line-height: 1.45;
+      margin-bottom: 0.5rem;
+    }
+    .card-titulo mark { background: #fef08a; padding: 0 2px; border-radius: 2px; }
+
+    .card-meta {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      font-size: 0.78rem;
+      color: #666;
+      margin-bottom: 0.7rem;
+    }
+    .card-meta span { display: flex; align-items: center; gap: 4px; }
+
+    .resumo-container { position: relative; }
+    .resumo-texto {
+      font-size: 0.84rem;
+      color: #444;
+      line-height: 1.65;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .resumo-texto mark { background: #fef08a; padding: 0 2px; border-radius: 2px; }
+    .resumo-curto { max-height: 5.5em; overflow: hidden; }
+    .resumo-gradiente {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2.5em;
+      background: linear-gradient(transparent, #fff);
+      pointer-events: none;
+    }
+
+    .card-acoes {
+      display: flex;
+      gap: 0.8rem;
+      margin-top: 0.9rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .btn-ver-mais {
+      background: none;
+      border: none;
+      color: var(--verde-claro);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline dotted;
+    }
+    .btn-ver-mais:hover { color: var(--verde); }
+    .btn-pdf {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--verde);
+      color: #fff;
+      text-decoration: none;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+    .btn-pdf:hover { background: var(--verde-claro); }
+    .btn-fonte {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #666;
+      text-decoration: none;
+      font-size: 0.78rem;
+      padding: 6px 10px;
+      border: 1px solid var(--borda);
+      border-radius: 6px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-fonte:hover { color: var(--verde); border-color: var(--verde); }
+
+    /* ── Estado vazio / carregando ── */
+    .estado-vazio {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #aaa;
+    }
+    .estado-vazio .emoji { font-size: 3rem; margin-bottom: 0.5rem; }
+    .estado-vazio p { font-size: 0.95rem; }
+
+    .spinner {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+      color: var(--verde);
+      font-size: 0.9rem;
+    }
+    .spinner::before {
+      content: "";
+      display: block;
+      width: 36px; height: 36px;
+      border: 4px solid var(--verde-bg);
+      border-top-color: var(--verde);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto 0.5rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Rodapé ── */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      font-size: 0.75rem;
+      color: #aaa;
+    }
+
+    /* ── Responsivo ── */
+    @media (max-width: 600px) {
+      header { padding: 0 1rem; }
+      .filtros { flex-direction: column; }
+      .btn-buscar { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="brasao">⚖️</div>
+  <div class="titulo-header">
+    <h1>Consulta de Jurisprudência Eleitoral</h1>
+    <p>Tribunal Regional Eleitoral do Ceará — TRE-CE</p>
+  </div>
+  <div class="badge-total">{{ total }} decisões indexadas</div>
+</header>
+
+<div class="container">
+
+  <!-- Painel de busca -->
+  <div class="painel-busca">
+    <h2>Pesquisar Precedentes</h2>
+
+    <div class="campo-busca-wrapper">
+      <span class="icone-busca">🔍</span>
+      <input
+        id="campo-busca"
+        type="text"
+        placeholder="Ex: omissão de despesas, propaganda em bem público, devolução ao tesouro..."
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <button class="btn-limpar-busca" id="btn-limpar" title="Limpar">✕</button>
+    </div>
+
+    <div class="filtros">
+      <div class="filtro-group">
+        <label>Fonte</label>
+        <select id="sel-fonte">
+          <option value="">— Todas as fontes —</option>
+          {% for f in fontes %}
+          <option value="{{ f }}">{{ f }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filtro-group">
+        <label>Tópico</label>
+        <select id="sel-topico">
+          <option value="">— Todos os tópicos —</option>
+          {% for t in topicos %}
+          <option value="{{ t }}">{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filtro-group">
+        <label>Subtópico</label>
+        <select id="sel-subtopico" disabled>
+          <option value="">— Selecione um tópico —</option>
+        </select>
+      </div>
+
+      <button class="btn-buscar" id="btn-buscar">Buscar</button>
+    </div>
+
+    <p class="dica">
+      <strong>Dica:</strong> A busca é semântica — descreva a situação do caso em linguagem natural.
+      Use os filtros para restringir ao tópico ou subtópico desejado.
+    </p>
+  </div>
+
+  <!-- Resultados -->
+  <div id="status"></div>
+  <div id="spinner" class="spinner">Buscando precedentes...</div>
+  <div id="resultados">
+    <div class="estado-vazio">
+      <div class="emoji">📚</div>
+      <p>Digite um termo ou selecione um filtro para iniciar a consulta.</p>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Ferramenta interna — Seção de Jurisprudência e Legislação · TRE-CE
+</footer>
+
+<script>
+  const campoQ = document.getElementById('campo-busca');
+  const btnBuscar = document.getElementById('btn-buscar');
+  const btnLimpar = document.getElementById('btn-limpar');
+  const selFonte = document.getElementById('sel-fonte');
+  const selTopico = document.getElementById('sel-topico');
+  const selSub = document.getElementById('sel-subtopico');
+  const divStatus = document.getElementById('status');
+  const divResultados = document.getElementById('resultados');
+  const spinner = document.getElementById('spinner');
+
+  const subtopicosData = {{ subtopicos | tojson }};
+
+  // ── Subtópicos dinâmicos ──
+  selTopico.addEventListener('change', () => {
+    const topico = selTopico.value;
+    selSub.innerHTML = '';
+    if (!topico) {
+      selSub.innerHTML = '<option value="">— Selecione um tópico —</option>';
+      selSub.disabled = true;
+      return;
+    }
+    const subs = subtopicosData[topico] || [];
+    selSub.innerHTML = '<option value="">— Todos os subtópicos —</option>';
+    subs.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s;
+      opt.textContent = s;
+      selSub.appendChild(opt);
+    });
+    selSub.disabled = false;
+    buscar();
+  });
+
+  selFonte.addEventListener('change', buscar);
+  selSub.addEventListener('change', buscar);
+  btnBuscar.addEventListener('click', buscar);
+
+  campoQ.addEventListener('input', () => {
+    btnLimpar.style.display = campoQ.value ? 'block' : 'none';
+  });
+  btnLimpar.addEventListener('click', () => {
+    campoQ.value = '';
+    btnLimpar.style.display = 'none';
+    campoQ.focus();
+    divResultados.innerHTML = '<div class="estado-vazio"><div class="emoji">📚</div><p>Digite um termo ou selecione um filtro.</p></div>';
+    divStatus.innerHTML = '';
+  });
+  campoQ.addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+
+  // ── Busca ──
+  async function buscar() {
+    const q = campoQ.value.trim();
+    const fonte = selFonte.value;
+    const topico = selTopico.value;
+    const sub = selSub.value;
+
+    if (!q && !fonte && !topico && !sub) return;
+
+    spinner.style.display = 'block';
+    divResultados.innerHTML = '';
+    divStatus.innerHTML = '';
+
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (fonte) params.set('fonte', fonte);
+    if (topico) params.set('topico', topico);
+    if (sub) params.set('subtopico', sub);
+
+    try {
+      const resp = await fetch('/buscar?' + params);
+      const dados = await resp.json();
+      spinner.style.display = 'none';
+      renderResultados(dados, q);
+    } catch(e) {
+      spinner.style.display = 'none';
+      divStatus.innerHTML = '<span style="color:red">Erro ao buscar. Verifique se o servidor está rodando.</span>';
+    }
+  }
+
+  // ── Renderização ──
+  function renderResultados(dados, query) {
+    const { resultados, total, modo } = dados;
+
+    if (!resultados || resultados.length === 0) {
+      divStatus.innerHTML = 'Nenhuma decisão encontrada para os filtros selecionados.';
+      divResultados.innerHTML = '<div class="estado-vazio"><div class="emoji">🔎</div><p>Tente termos diferentes ou amplie os filtros.</p></div>';
+      return;
+    }
+
+    const modoTxt = modo === 'semantica'
+      ? `<span class="destaque">${total}</span> decisão(ões) por relevância semântica`
+      : `<span class="destaque">${total}</span> decisão(ões) no filtro selecionado`;
+    divStatus.innerHTML = modoTxt;
+
+    divResultados.innerHTML = resultados.map((r, i) => cardHTML(r, i)).join('');
+
+    // Eventos "ver mais / ver menos" nos cards
+    document.querySelectorAll('.btn-ver-mais').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const resumoEl = document.getElementById('resumo-' + id);
+        const gradEl = document.getElementById('grad-' + id);
+        const expandido = resumoEl.classList.contains('resumo-curto');
+        resumoEl.classList.toggle('resumo-curto', !expandido);
+        if (gradEl) gradEl.style.display = expandido ? 'none' : 'block';
+        btn.textContent = expandido ? 'Ver menos ▲' : 'Ver mais ▼';
+      });
+    });
+  }
+
+  function badgeTribunal(tribunal) {
+    if (tribunal === 'TSE') return 'badge-tribunal-tse';
+    if (tribunal === 'TRE-CE') return 'badge-tribunal-trece';
+    return 'badge-tribunal-outro';
+  }
+
+  function badgeFonte(fonte) {
+    if (!fonte) return '';
+    const cls = fonte.includes('TSE') ? 'badge-fonte-tse' : 'badge-fonte-trece';
+    const label = fonte.includes('TSE') ? 'TSE · Temas Selecionados' : 'TRE-CE · Ementários';
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  function cardHTML(r, i) {
+    const scoreHTML = r.score != null
+      ? `<span class="badge badge-score">Relevância ${r.score}%</span>`
+      : '';
+    const subHTML = r.subtopico
+      ? `<span class="card-subtopico">${esc(r.subtopico)}</span>`
+      : '';
+    const metaItens = [
+      r.numero_processo ? `<span>📋 <strong>${esc(r.numero_processo)}</strong></span>` : '',
+      r.data ? `<span>📅 ${esc(r.data)}</span>` : '',
+      r.relator ? `<span>👤 ${esc(r.relator)}</span>` : '',
+    ].filter(Boolean).join('');
+
+    const resumoTexto = (r.resumo_hl || r.resumo || '').replace(/</g, x => x === '<mark>' || x === '</mark>' ? x : '&lt;');
+    const longo = (r.resumo || '').length > 300;
+
+    const pdfBtn = r.url_pdf
+      ? `<a href="${esc(r.url_pdf)}" target="_blank" class="btn-pdf">📄 Abrir Acórdão PDF</a>`
+      : '';
+    const fonteBtn = r.url_fonte
+      ? `<a href="${esc(r.url_fonte)}" target="_blank" class="btn-fonte">🔗 Página da fonte</a>`
+      : '';
+
+    return `
+    <div class="card">
+      <div class="card-topo">
+        ${badgeFonte(r.fonte)}
+        <span class="badge badge-topico">${esc(r.topico)}</span>
+        <span class="badge ${badgeTribunal(r.tribunal)}">${esc(r.tribunal || '—')}</span>
+        ${scoreHTML}
+        ${subHTML}
+      </div>
+      <div class="card-titulo">${r.titulo_hl || esc(r.titulo)}</div>
+      ${metaItens ? `<div class="card-meta">${metaItens}</div>` : ''}
+      <div class="resumo-container">
+        <div id="resumo-${i}" class="resumo-texto ${longo ? 'resumo-curto' : ''}">${r.resumo_hl || esc(r.resumo)}</div>
+        ${longo ? `<div id="grad-${i}" class="resumo-gradiente"></div>` : ''}
+      </div>
+      <div class="card-acoes">
+        ${longo ? `<button class="btn-ver-mais" data-id="${i}">Ver mais ▼</button>` : ''}
+        ${pdfBtn}
+        ${fonteBtn}
+      </div>
+    </div>`;
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+</script>
+
+</body>
+</html>
