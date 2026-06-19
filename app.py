@@ -10,7 +10,8 @@ import logging
 import os
 from pathlib import Path
 
-from flask import Flask, render_template, request, jsonify
+import requests
+from flask import Flask, render_template, request, jsonify, Response, stream_with_context
 from rank_bm25 import BM25Okapi
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -154,6 +155,30 @@ def busca_por_filtro(topico: str, subtopico: str, fonte: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Rotas
 # ---------------------------------------------------------------------------
+
+_PDF_HOSTS_PERMITIDOS = ("sjur-servicos.tse.jus.br", "inter03.tse.jus.br")
+
+@app.route("/pdf")
+def proxy_pdf():
+    """Busca o PDF no servidor do TSE e repassa ao browser, contornando bloqueio de referrer."""
+    url = request.args.get("url", "").strip()
+    if not url or not any(h in url for h in _PDF_HOSTS_PERMITIDOS):
+        return "URL inválida", 400
+    try:
+        r = requests.get(url, timeout=20, verify=False, headers={
+            "Referer": "https://temasselecionados.tse.jus.br/",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        }, stream=True)
+        headers = {
+            "Content-Type": r.headers.get("Content-Type", "application/pdf"),
+            "Content-Disposition": r.headers.get("Content-Disposition", "inline"),
+        }
+        return Response(stream_with_context(r.iter_content(chunk_size=8192)),
+                        status=r.status_code, headers=headers)
+    except Exception as e:
+        log.error(f"Erro proxy PDF: {e}")
+        return "Não foi possível carregar o acórdão.", 502
+
 
 @app.route("/")
 def index():

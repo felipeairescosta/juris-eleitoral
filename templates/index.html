@@ -594,7 +594,7 @@
 
     // Só exibe botão quando há PDF vinculado (súmulas não têm acórdão individual)
     const pdfBtn = r.url_pdf
-      ? `<a href="${esc(r.url_fonte || r.url_pdf)}" target="_blank" class="btn-pdf">📄 Ver Acórdão</a>`
+      ? `<a href="/pdf?url=${encodeURIComponent(r.url_pdf)}" target="_blank" class="btn-pdf">📄 Ver Acórdão</a>`
       : '';
     const fonteBtn = '';
 
