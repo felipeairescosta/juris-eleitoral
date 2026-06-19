@@ -529,7 +529,7 @@
 
   // ── Renderização ──
   function renderResultados(dados, query) {
-    const { resultados, total, modo } = dados;
+    const { resultados, total, total_filtro, modo } = dados;
 
     if (!resultados || resultados.length === 0) {
       divStatus.innerHTML = 'Nenhuma decisão encontrada para os filtros selecionados.';
@@ -537,9 +537,14 @@
       return;
     }
 
-    const modoTxt = modo === 'semantica'
-      ? `<span class="destaque">${total}</span> decisão(ões) por relevância semântica`
-      : `<span class="destaque">${total}</span> decisão(ões) no filtro selecionado`;
+    let modoTxt;
+    if (modo === 'semantica') {
+      modoTxt = `<span class="destaque">${total}</span> decisão(ões) por relevância`;
+    } else if (total_filtro && total_filtro > total) {
+      modoTxt = `Exibindo <span class="destaque">${total}</span> de <span class="destaque">${total_filtro}</span> decisões — use a busca para refinar os resultados`;
+    } else {
+      modoTxt = `<span class="destaque">${total}</span> decisão(ões) encontrada(s)`;
+    }
     divStatus.innerHTML = modoTxt;
 
     divResultados.innerHTML = resultados.map((r, i) => cardHTML(r, i)).join('');

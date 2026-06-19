@@ -129,7 +129,7 @@ def busca_bm25(query: str, topico: str, subtopico: str, fonte: str, n: int = 20)
     return saida
 
 
-def busca_por_filtro(topico: str, subtopico: str, fonte: str) -> list[dict]:
+def busca_por_filtro(topico: str, subtopico: str, fonte: str, limite: int = 200) -> tuple[list[dict], int]:
     result = []
     for d in _decisoes:
         if topico    and d.get("topico")    != topico:    continue
@@ -149,7 +149,8 @@ def busca_por_filtro(topico: str, subtopico: str, fonte: str) -> list[dict]:
             "resumo":          d.get("resumo", "")[:2000],
             "score":           None,
         })
-    return result[:200]
+    total = len(result)
+    return result[:limite], total
 
 
 # ---------------------------------------------------------------------------
@@ -214,11 +215,14 @@ def buscar():
             r["titulo_hl"] = destacar(r.get("titulo", ""), termos)
             r["resumo_hl"] = destacar(r.get("resumo", ""), termos)
     else:
-        resultados = busca_por_filtro(topico, subtopico, fonte)
+        resultados, total_filtro = busca_por_filtro(topico, subtopico, fonte)
         modo = "filtro"
         for r in resultados:
             r["titulo_hl"] = r.get("titulo", "")
             r["resumo_hl"] = r.get("resumo", "")
+
+        return jsonify({"resultados": resultados, "total": len(resultados),
+                        "total_filtro": total_filtro, "modo": modo})
 
     return jsonify({"resultados": resultados, "total": len(resultados), "modo": modo})
 
