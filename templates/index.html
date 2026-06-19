@@ -586,10 +586,10 @@
     const resumoTexto = (r.resumo_hl || r.resumo || '').replace(/</g, x => x === '<mark>' || x === '</mark>' ? x : '&lt;');
     const longo = (r.resumo || '').length > 300;
 
-    // Abre a página da fonte (TSE/TRE-CE) onde o PDF pode ser acessado com sessão correta
-    const pdfBtn = r.url_fonte
-      ? `<a href="${esc(r.url_fonte)}" target="_blank" class="btn-pdf">📄 Ver Acórdão</a>`
-      : (r.url_pdf ? `<a href="${esc(r.url_pdf)}" target="_blank" class="btn-pdf">📄 Ver Acórdão</a>` : '');
+    // Só exibe botão quando há PDF vinculado (súmulas não têm acórdão individual)
+    const pdfBtn = r.url_pdf
+      ? `<a href="${esc(r.url_fonte || r.url_pdf)}" target="_blank" class="btn-pdf">📄 Ver Acórdão</a>`
+      : '';
     const fonteBtn = '';
 
     return `
