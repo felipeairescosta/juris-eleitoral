@@ -224,6 +224,7 @@
     .badge-tribunal-trers { background: #fdf2f8; color: #9333ea; }
     .badge-tribunal-tresp { background: #ecfdf5; color: #065f46; }
     .badge-tribunal-tremg { background: #fffbeb; color: #92400e; }
+    .badge-tribunal-trerj { background: #fef2f2; color: #991b1b; }
     .badge-tribunal-outro { background: #f3f4f6; color: #555; }
     .badge-score {
       background: #f0fdf4;
@@ -235,6 +236,7 @@
     .badge-fonte-trers { background: #fdf2f8; color: #9333ea; }
     .badge-fonte-tresp { background: #ecfdf5; color: #065f46; }
     .badge-fonte-tremg { background: #fffbeb; color: #92400e; }
+    .badge-fonte-trerj { background: #fef2f2; color: #991b1b; }
     .badge-fonte-outro { background: #f3f4f6; color: #555; }
 
     .card-subtopico {
@@ -490,7 +492,7 @@
   const divResultados = document.getElementById('resultados');
   const spinner = document.getElementById('spinner');
 
-  const FONTES_SEM_TOPICO = ['TRE-CE - Súmulas', 'TSE - Súmulas'];
+  const FONTES_SEM_TOPICO = ['TRE-CE - Súmulas', 'TSE - Súmulas', 'TRE-RJ - Súmulas'];
   const grupoTopico    = document.getElementById('grupo-topico');
   const grupoSubtopico = document.getElementById('grupo-subtopico');
 
@@ -656,6 +658,7 @@
     if (tribunal === 'TRE-RS') return 'badge-tribunal-trers';
     if (tribunal === 'TRE-SP') return 'badge-tribunal-tresp';
     if (tribunal === 'TRE-MG') return 'badge-tribunal-tremg';
+    if (tribunal === 'TRE-RJ') return 'badge-tribunal-trerj';
     return 'badge-tribunal-outro';
   }
 
@@ -669,6 +672,7 @@
       'TRE-RS - Ementário Temático':    ['badge-fonte-trers', 'TRE-RS · Ementário'],
       'TRE-SP - Temas Selecionados':    ['badge-fonte-tresp', 'TRE-SP · Temas Selecionados'],
       'TRE-MG - Ementario Tematico':   ['badge-fonte-tremg', 'TRE-MG · Ementário'],
+      'TRE-RJ - Súmulas':              ['badge-fonte-trerj', 'TRE-RJ · Súmulas'],
     };
     const [cls, label] = map[fonte] || ['badge-fonte-outro', fonte];
     return `<span class="badge ${cls}">${label}</span>`;
