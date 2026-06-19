@@ -222,6 +222,7 @@
     .badge-tribunal-tse   { background: #fff3e0; color: #b45309; }
     .badge-tribunal-trece { background: #e8f0fe; color: #1a56db; }
     .badge-tribunal-trers { background: #fdf2f8; color: #9333ea; }
+    .badge-tribunal-tresp { background: #ecfdf5; color: #065f46; }
     .badge-tribunal-outro { background: #f3f4f6; color: #555; }
     .badge-score {
       background: #f0fdf4;
@@ -231,6 +232,7 @@
     .badge-fonte-trece { background: #e8f0fe; color: #1a56db; }
     .badge-fonte-tse   { background: #fff3e0; color: #92400e; }
     .badge-fonte-trers { background: #fdf2f8; color: #9333ea; }
+    .badge-fonte-tresp { background: #ecfdf5; color: #065f46; }
     .badge-fonte-outro { background: #f3f4f6; color: #555; }
 
     .card-subtopico {
@@ -650,6 +652,7 @@
     if (tribunal === 'TSE')    return 'badge-tribunal-tse';
     if (tribunal === 'TRE-CE') return 'badge-tribunal-trece';
     if (tribunal === 'TRE-RS') return 'badge-tribunal-trers';
+    if (tribunal === 'TRE-SP') return 'badge-tribunal-tresp';
     return 'badge-tribunal-outro';
   }
 
@@ -661,6 +664,7 @@
       'TRE-CE - Ementários Temáticos':  ['badge-fonte-trece', 'TRE-CE · Ementários'],
       'TRE-CE - Súmulas':               ['badge-fonte-trece', 'TRE-CE · Súmulas'],
       'TRE-RS - Ementário Temático':    ['badge-fonte-trers', 'TRE-RS · Ementário'],
+      'TRE-SP - Temas Selecionados':    ['badge-fonte-tresp', 'TRE-SP · Temas Selecionados'],
     };
     const [cls, label] = map[fonte] || ['badge-fonte-outro', fonte];
     return `<span class="badge ${cls}">${label}</span>`;

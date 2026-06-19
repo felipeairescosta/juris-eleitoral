@@ -11,6 +11,7 @@ TSE_JSON         = Path("output/jurisprudencia_tse.json")
 SUMULAS_JSON     = Path("output/jurisprudencia_sumulas_trece.json")
 SUMULAS_TSE_JSON = Path("output/jurisprudencia_sumulas_tse.json")
 TRERS_JSON       = Path("output/jurisprudencia_trers.json")
+TRESP_JSON       = Path("output/jurisprudencia_tresp.json")
 MERGED_JSON      = Path("output/jurisprudencia_merged.json")
 
 FONTES = [
@@ -19,6 +20,7 @@ FONTES = [
     (SUMULAS_JSON,    "TRE-CE - Súmulas"),
     (SUMULAS_TSE_JSON, "TSE - Súmulas"),
     (TRERS_JSON,      "TRE-RS - Ementário Temático"),
+    (TRESP_JSON,      "TRE-SP - Temas Selecionados"),
 ]
 
 
