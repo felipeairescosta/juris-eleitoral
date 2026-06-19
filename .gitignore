@@ -1,0 +1,18 @@
+# Banco de dados e dados gerados
+output/
+
+# Claude Code
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Arquivos temporários
+*.tmp
+app_stdout.txt
+app_stderr.txt
+app_out.txt
+err.txt
