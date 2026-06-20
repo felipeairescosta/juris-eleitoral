@@ -71,7 +71,7 @@ def main():
         elif url:
             chave = url
         else:
-            chave = trib + "|" + r.get("topico", "") + "|" + r.get("titulo", "")
+            chave = trib + "|" + num + "|" + r.get("topico", "") + "|" + r.get("titulo", "")[:80]
         if chave and chave not in vistos:
             vistos.add(chave)
             unicos.append(r)
