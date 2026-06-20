@@ -700,7 +700,7 @@
 
     // Só exibe botão quando há URL real de PDF (não IDs internos ou caminhos locais)
     const pdfBtn = r.url_pdf && r.url_pdf.startsWith('http')
-      ? `<a href="/pdf?url=${encodeURIComponent(r.url_pdf)}" target="_blank" class="btn-pdf">📄 Ver Acórdão</a>`
+      ? `<a href="${r.url_pdf}" target="_blank" rel="noopener" class="btn-pdf">📄 Ver Acórdão</a>`
       : '';
     const fonteBtn = '';
 
