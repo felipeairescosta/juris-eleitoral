@@ -49,11 +49,39 @@ PDFS = [
     ),
 ]
 
-# Linha de citacao que encerra cada decisao
-# Ex: Ac.TRE-MG no RE n 060058960, de 17/12/2025, Rel. ..., publicado no DJEMG de 22/12/2025
+# Linha de citacao que encerra cada decisao.
+# Variantes encontradas nos 4 PDFs (2022-2025):
+#   Ac. TRE-MG no RE n° NNN                    basico
+#   Ac. TRE-MG, no RE n° NNN                   virgula antes de "no"
+#   Ac. TRE-MG na RVC n° NNN                   "na" em vez de "no"
+#   Ac. TRE-MG nos ED no RE n° NNN             "nos" + tipo composto
+#   Ac. TRE-MG no AgR no(a) RE n° NNN          AgR com subtipo
+#   Ac. TREMG no RE n° NNN                     sem hifen
+#   Ac TREMG RE n° NNN                         sem ponto, sem "no"
+#   Ac. TRE-MG no Agravo Regimental n° NNN     tipo por extenso
+#   publicado no DJE de DD/MM/AAAA             DJE em vez de DJEMG
+#   publicado em Sessao de DD/MM/AAAA          sessao em vez de diario
+#   publicado no de DD/MM/AAAA                 sem veiculo
 RE_CITACAO = re.compile(
-    r"Ac\.?\s*TRE[-\s]MG\s+no\s+([\w]+)\s+n[" + "\xb0" + r"o\xba\.]\s*(\d[\d\.\-/]+)"
-    r"(.*?)publicado\s+no\s+DJEMG\s+de\s+\d{1,2}[./]\d{1,2}[./]\d{4}\.?",
+    r"Ac\.?\s*"
+    r"TRE[-\s]?MG"
+    r"[,]?\s+"
+    # tipo: palavra(s) simples OU "AgR no(a) RE" OU "ED nos ED no RE" OU "Agravo Regimental"
+    # NAO usar [\s\w]* livre — causa backtracking catastrofico com (.*?)DOTALL
+    r"(?:n[ao]s?\s+)?"
+    r"("
+        r"[\w.]+(?:\s+n[ao]s?\(?[a-z]?\)?\s+[\w.]+)*"  # RE / AgR no(a) RE / ED nos ED no RE
+        r"|Agravo\s+Regimental"
+    r")"
+    r"\.?\s+[Nn][\xb0o\xba\.]\s*(\d[\d\.\-/]+)"  # [.] n°/N°/no NUMERO
+    r"(.*?)"
+    r"(?:publicado|Publicado)"
+    r"\s+(?:"
+        r"no\s+(?:DJEMG|DJE)[,]?\s+de"        # publicado no DJEMG[,] de ...
+        r"|no\s+de"                             # publicado no de ...
+        r"|em\s+[Ss]ess[a\xe3]o\s+(?:de|em)"  # publicado em Sessao de/em ...
+    r")"
+    r"\s*\d{1,2}[./]\d{1,2}[./]\d{4}\.?",
     re.IGNORECASE | re.DOTALL,
 )
 RE_DATA = re.compile(r"(\d{1,2}[./]\d{1,2}[./]\d{4})")
