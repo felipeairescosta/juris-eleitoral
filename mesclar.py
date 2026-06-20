@@ -57,11 +57,21 @@ def main():
         else:
             print(f"Aviso: {arquivo} nao encontrado")
 
-    # Remove duplicatas por url_pdf (mantém o primeiro)
+    # Remove duplicatas: usa url_pdf quando é único por decisão;
+    # para fontes onde url_pdf é o PDF container (ex: TRE-MG ementário),
+    # combina com numero_processo para ter chave única por decisão.
     vistos: set[str] = set()
     unicos: list[dict] = []
     for r in registros:
-        chave = r.get("url_pdf") or (r.get("topico", "") + r.get("titulo", ""))
+        url  = r.get("url_pdf", "")
+        num  = r.get("numero_processo", "")
+        trib = r.get("tribunal", "")
+        if url and num:
+            chave = url + "|" + trib + "|" + num
+        elif url:
+            chave = url
+        else:
+            chave = trib + "|" + r.get("topico", "") + "|" + r.get("titulo", "")
         if chave and chave not in vistos:
             vistos.add(chave)
             unicos.append(r)
