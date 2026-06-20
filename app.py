@@ -132,7 +132,7 @@ def busca_bm25(query: str, topico: str, subtopico: str, fonte: str, n: int = 20)
             "tribunal":        d.get("tribunal", ""),
             "url_pdf":         d.get("url_pdf", ""),
             "url_fonte":       d.get("url_fonte", ""),
-            "resumo":          d.get("resumo", "")[:2000],
+            "resumo":          d.get("resumo", "")[:5000],
             "score":           round(score, 1),
         })
     return saida
@@ -170,7 +170,7 @@ def busca_por_filtro(topico: str, subtopico: str, fonte: str, pagina: int = 1) -
             "tribunal":        d.get("tribunal", ""),
             "url_pdf":         d.get("url_pdf", ""),
             "url_fonte":       d.get("url_fonte", ""),
-            "resumo":          d.get("resumo", "")[:2000],
+            "resumo":          d.get("resumo", "")[:5000],
             "score":           None,
         })
 
