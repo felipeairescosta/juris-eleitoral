@@ -588,7 +588,7 @@
     if (fonte) params.set('fonte', fonte);
     if (topico) params.set('topico', topico);
     if (sub) params.set('subtopico', sub);
-    if (!q) params.set('pagina', paginaAtual);
+    params.set('pagina', paginaAtual);
 
     try {
       const resp = await fetch('/buscar?' + params);
@@ -611,18 +611,16 @@
       return;
     }
 
-    let modoTxt;
-    if (modo === 'bm25') {
-      modoTxt = `<span class="destaque">${total}</span> decisão(ões) por relevância`;
-    } else {
-      const de = ((pagina - 1) * 50) + 1;
-      const ate = Math.min(pagina * 50, total_filtro);
-      modoTxt = `Exibindo <span class="destaque">${de}–${ate}</span> de <span class="destaque">${total_filtro}</span> decisões`;
-    }
+    const de = ((pagina - 1) * 50) + 1;
+    const ate = Math.min(pagina * 50, total_filtro);
+    const sufixo = modo === 'bm25' ? ' por relevância' : '';
+    const modoTxt = total_filtro > 50
+      ? `Exibindo <span class="destaque">${de}–${ate}</span> de <span class="destaque">${total_filtro}</span> decisões${sufixo}`
+      : `<span class="destaque">${total_filtro}</span> decisão(ões) encontrada(s)${sufixo}`;
     divStatus.innerHTML = modoTxt;
 
     // Paginação
-    if (modo !== 'bm25' && total_paginas > 1) {
+    if (total_paginas > 1) {
       const divPag = document.getElementById('paginacao');
       const pg = pagina;
       let html = '';

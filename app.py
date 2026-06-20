@@ -97,12 +97,12 @@ def destacar(texto: str, termos: list[str]) -> str:
     return padrao.sub(r"<mark>\1</mark>", texto)
 
 
-def busca_bm25(query: str, topico: str, subtopico: str, fonte: str, n: int = 20) -> list[dict]:
+def busca_bm25(query: str, topico: str, subtopico: str, fonte: str, pagina: int = 1) -> tuple[list[dict], int, int]:
     tokens = _tokenizar(query)
     scores = _bm25.get_scores(tokens)
 
-    # Aplica filtros e coleta resultados ordenados por score
-    resultados = []
+    # Aplica filtros e coleta todos os resultados com score > 0
+    candidatos = []
     for i, score in enumerate(scores):
         if score <= 0:
             continue
@@ -113,13 +113,17 @@ def busca_bm25(query: str, topico: str, subtopico: str, fonte: str, n: int = 20)
             continue
         if fonte     and d.get("fonte")     != fonte:
             continue
-        resultados.append((score, i))
+        candidatos.append((score, i))
 
-    resultados.sort(reverse=True)
-    resultados = resultados[:n]
+    candidatos.sort(reverse=True)
+    total = len(candidatos)
+    total_paginas = max(1, (total + POR_PAGINA - 1) // POR_PAGINA)
+    pagina = max(1, min(pagina, total_paginas))
+    inicio = (pagina - 1) * POR_PAGINA
+    pagina_items = candidatos[inicio:inicio + POR_PAGINA]
 
     saida = []
-    for score, i in resultados:
+    for score, i in pagina_items:
         d = _decisoes[i]
         saida.append({
             "fonte":           d.get("fonte", ""),
@@ -135,7 +139,7 @@ def busca_bm25(query: str, topico: str, subtopico: str, fonte: str, n: int = 20)
             "resumo":          d.get("resumo", ""),
             "score":           round(score, 1),
         })
-    return saida
+    return saida, total, total_paginas
 
 
 _DATA_RE = re.compile(r"(\d{1,2})[./](\d{1,2})[./](\d{2,4})")
@@ -254,26 +258,25 @@ def buscar():
     if not query and not topico and not subtopico and not fonte:
         return jsonify({"resultados": [], "total": 0, "modo": "vazio"})
 
+    pagina = int(request.args.get("pagina", 1))
+
     if query:
-        resultados = busca_bm25(query, topico, subtopico, fonte)
+        resultados, total_filtro, total_paginas = busca_bm25(query, topico, subtopico, fonte, pagina)
         modo = "bm25"
         termos = query.split()
         for r in resultados:
             r["titulo_hl"] = destacar(r.get("titulo", ""), termos)
             r["resumo_hl"] = destacar(r.get("resumo", ""), termos)
     else:
-        pagina = int(request.args.get("pagina", 1))
         resultados, total_filtro, total_paginas = busca_por_filtro(topico, subtopico, fonte, pagina)
         modo = "filtro"
         for r in resultados:
             r["titulo_hl"] = r.get("titulo", "")
             r["resumo_hl"] = r.get("resumo", "")
 
-        return jsonify({"resultados": resultados, "total": len(resultados),
-                        "total_filtro": total_filtro, "total_paginas": total_paginas,
-                        "pagina": pagina, "modo": modo})
-
-    return jsonify({"resultados": resultados, "total": len(resultados), "modo": modo})
+    return jsonify({"resultados": resultados, "total": len(resultados),
+                    "total_filtro": total_filtro, "total_paginas": total_paginas,
+                    "pagina": pagina, "modo": modo})
 
 
 if __name__ == "__main__":
