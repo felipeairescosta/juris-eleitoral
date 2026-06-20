@@ -63,11 +63,24 @@ _bm25 = BM25Okapi(_corpus_tokens)
 del _corpus_tokens  # libera memória após indexação
 log.info("Índice BM25 pronto.")
 
+# Fontes cujo conteudo nao usa topico/subtopico (sumulas e similares)
+_FONTES_SEM_TOPICO = {
+    "TRE-CE - Súmulas",
+    "TSE - Súmulas",
+    "TRE-RJ - Súmulas",
+    "TRE-BA - Súmulas",
+}
+
 # Índices para filtros
 _fontes   = sorted({d.get("fonte", "") for d in _decisoes if d.get("fonte")})
-_topicos  = sorted({d.get("topico", "") for d in _decisoes if d.get("topico")})
+_topicos  = sorted({
+    d.get("topico", "") for d in _decisoes
+    if d.get("topico") and d.get("fonte") not in _FONTES_SEM_TOPICO
+})
 _subtopicos: dict[str, list[str]] = {}
 for d in _decisoes:
+    if d.get("fonte") in _FONTES_SEM_TOPICO:
+        continue
     t, s = d.get("topico", ""), d.get("subtopico", "")
     if t and s:
         _subtopicos.setdefault(t, set()).add(s)
@@ -216,7 +229,9 @@ def index():
 def get_topicos():
     fonte = request.args.get("fonte", "").strip()
     if not fonte:
-        return jsonify(_topicos)
+        return jsonify(_topicos)  # ja filtrado sem fontes de sumulas
+    if fonte in _FONTES_SEM_TOPICO:
+        return jsonify([])
     tops = sorted({d["topico"] for d in _decisoes
                    if d.get("topico") and d.get("fonte") == fonte})
     return jsonify(tops)
