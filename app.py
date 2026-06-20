@@ -31,11 +31,7 @@ log.info("Carregando dados...")
 with open(DADOS_JSON, encoding="utf-8") as f:
     raw = json.load(f)
 
-# Trunca resumo para reduzir uso de memória (512MB no plano gratuito do Render)
-_decisoes: list[dict] = []
-for d in raw:
-    d["resumo"] = (d.get("resumo") or "")[:800]
-    _decisoes.append(d)
+_decisoes: list[dict] = raw
 del raw
 log.info(f"{len(_decisoes)} decisoes carregadas.")
 
