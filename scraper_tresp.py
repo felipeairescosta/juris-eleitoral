@@ -163,7 +163,7 @@ def parsear_decisoes(texto: str, topico_pdf: str) -> list[dict]:
             "relator":          relator,
             "publicacao":       "",
             "tribunal":         tribunal,
-            "resumo":           bloco[:3000],
+            "resumo":           bloco,
             "url_pdf":          "",
             "url_fonte":        "",
             "fonte":            "TRE-SP - Temas Selecionados",
