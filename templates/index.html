@@ -700,8 +700,8 @@
     const resumoTexto = (r.resumo_hl || r.resumo || '').replace(/</g, x => x === '<mark>' || x === '</mark>' ? x : '&lt;');
     const longo = (r.resumo || '').length > 300;
 
-    // Só exibe botão quando há PDF vinculado (súmulas não têm acórdão individual)
-    const pdfBtn = r.url_pdf
+    // Só exibe botão quando há URL real de PDF (não IDs internos ou caminhos locais)
+    const pdfBtn = r.url_pdf && r.url_pdf.startsWith('http')
       ? `<a href="/pdf?url=${encodeURIComponent(r.url_pdf)}" target="_blank" class="btn-pdf">📄 Ver Acórdão</a>`
       : '';
     const fonteBtn = '';
