@@ -127,16 +127,64 @@ def subtopico_anterior(elemento: Tag) -> str:
     return "Generalidades"
 
 
-def contexto_pai(elemento: Tag, max_chars: int = 1500) -> str:
-    """Extrai texto do bloco pai mais significativo em torno do link."""
-    candidatos = ["li", "p", "div", "td", "article", "section"]
-    for tag in candidatos:
-        pai = elemento.find_parent(tag)
-        if pai:
-            texto = pai.get_text(separator=" ", strip=True)
-            if len(texto) > 20:
-                return texto[:max_chars]
-    return elemento.get_text(strip=True)[:max_chars]
+def contexto_pai(elemento: Tag, max_chars: int = 8000) -> str:
+    """Extrai ementa + citação do link de PDF.
+
+    Estrutura TSE:
+      <div class='conteudo_subtitulo'>
+        <p>[ementa texto]</p>
+        <p><em>(Ac. de ... <a href=pdf>)</em></p>   ← link pode estar aqui
+        <p>(Ac. de ... <a href=pdf>)</p>             ← ou aqui
+      </div>
+
+    Estratégia: sobe até o <p> que contém o link (citação),
+    depois coleta os <p> irmãos anteriores (ementa) até bater em
+    outra citação ou heading.
+    """
+    from bs4 import NavigableString
+
+    RE_CIT = re.compile(r"\(Ac\b|\bAcórdão\b|julgamento em", re.IGNORECASE)
+
+    # 1. Encontra o <p> ancestral da citação (o <p> dentro do conteudo_subtitulo)
+    cit_p = elemento.find_parent("p")
+    if not cit_p:
+        # sem <p> pai — usa fallback genérico
+        for tag in ["li", "div"]:
+            for pai in elemento.find_parents(tag):
+                t = pai.get_text(" ", strip=True)
+                if 20 < len(t) <= max_chars:
+                    return t
+        return elemento.get_text(strip=True)[:max_chars]
+
+    # 2. Coleta <p> irmãos anteriores (ementa) até outra citação ou heading
+    partes = []
+    for sib in reversed(list(cit_p.previous_siblings)):
+        if isinstance(sib, NavigableString):
+            t = sib.strip()
+            if t:
+                partes.append(t)
+            continue
+        if sib.name in ("h1", "h2", "h3", "h4", "h5", "h6"):
+            break
+        t = sib.get_text(" ", strip=True)
+        if not t:
+            continue
+        if RE_CIT.search(t):
+            break  # outra citação = outra decisão
+        partes.append(t)
+
+    partes.reverse()
+    partes.append(cit_p.get_text(" ", strip=True))
+    resultado = " ".join(partes)
+
+    # 3. Se ficou muito curto (só citação), tenta o <li> pai inteiro
+    if len(resultado) < 200:
+        for li in elemento.find_parents("li"):
+            t = li.get_text(" ", strip=True)
+            if len(t) > 200:
+                return t[:max_chars]
+
+    return resultado[:max_chars]
 
 
 def descobrir_topicos(session: requests.Session) -> list[dict]:
@@ -212,7 +260,7 @@ def raspar_topico(session: requests.Session, topico: dict) -> list[Decisao]:
             data=extrair_data(ctx),
             relator=extrair_relator(ctx),
             tribunal="TSE",
-            resumo=ctx[:3000],
+            resumo=ctx[:8000],
             url_pdf=url_pdf,
             url_fonte=url,
         )
