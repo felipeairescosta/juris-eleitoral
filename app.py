@@ -48,7 +48,7 @@ _corpus_tokens: list[list[str]] = []
 for d in _decisoes:
     campos = " ".join(filter(None, [
         d.get("titulo", ""),
-        d.get("resumo", ""),
+        d.get("resumo", "")[:600],   # limita só para o índice; exibição usa o resumo completo
         d.get("subtopico", ""),
         d.get("topico", ""),
         d.get("numero_processo", ""),
